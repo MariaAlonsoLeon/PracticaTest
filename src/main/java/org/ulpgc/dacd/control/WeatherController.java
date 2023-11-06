@@ -21,19 +21,25 @@ public class WeatherController {
     }
 
     public void execute() {
-        Instant currentTime = Instant.now();
         for (Location location : locations) {
+            Instant currentTime = Instant.now();
+
             for (int i = 0; i < days; i++) {
+                // Calcular la fecha y hora a las 12 del mediodía para el día actual
                 LocalDateTime localDateTime = currentTime.atZone(ZoneId.systemDefault())
                         .toLocalDate()
                         .plusDays(i)
                         .atTime(12, 0);
                 Instant forecastTime = localDateTime.atZone(ZoneId.systemDefault()).toInstant();
+
                 Weather weather = weatherSupplier.getWeather(location, forecastTime);
+
                 if (weather != null) {
-                    weatherStore.save(weather);
+                    weatherStore.save(weather); // Asegurarse de que los datos se almacenen en la tabla adecuada
                 }
             }
         }
     }
+
+
 }
