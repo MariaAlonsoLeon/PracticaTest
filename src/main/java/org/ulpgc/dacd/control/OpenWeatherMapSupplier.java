@@ -9,6 +9,8 @@ import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class OpenWeatherMapSupplier implements WeatherSupplier {
     private final String templateUrl;
@@ -20,20 +22,24 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     }
 
     @Override
-    public Weather getWeather(Location location, Instant instant) {
-        String url = buildUrl(location, instant);
-        try {
-            String jsonData = getWeatherDataFromUrl(url);
-            return parseJsonData(jsonData, location, instant);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null; // O manejar el error de alguna otra manera
+    public List<Weather> getWeather(Location location, List<Instant> instants) throws IOException {
+        List<Weather> weathers = new ArrayList<>();
+
+        String url = buildUrl(location);
+        String jsonData = getWeatherDataFromUrl(url);
+
+        for (Instant instant : instants) {
+            Weather weather = parseJsonData(jsonData, location, instant);
+            if (weather != null) {
+                weathers.add(weather);
+            }
         }
+
+        return weathers;
     }
 
-    private String buildUrl(Location location, Instant instant) {
+    private String buildUrl(Location location) {
         String coordinates = "lat=" + location.getLat() + "&lon=" + location.getLon();
-        long unixTimestamp = instant.getEpochSecond();
         System.out.println(templateUrl + coordinates  + "&appid=" + apiKey + "&units=metric");
         return templateUrl + coordinates + "&appid=" + apiKey + "&units=metric";
     }
@@ -43,39 +49,6 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         Document document = Jsoup.connect(url).ignoreContentType(true).get();
         return document.text();
     }
-
-    /*private Weather parseJsonData(String jsonData, Location location, Instant instant) {
-        JsonObject jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
-        JsonArray list = jsonObject.getAsJsonArray("list");
-
-        if (list != null && list.size() > 0) {
-            long targetTimestamp = instant.getEpochSecond();
-
-            for (int i = 0; i < list.size(); i++) {
-                JsonObject forecastData = list.get(i).getAsJsonObject();
-                long forecastTimestamp = forecastData.get("dt").getAsLong();
-
-                if (forecastTimestamp == targetTimestamp) {
-                    double temperature = forecastData.getAsJsonObject("main").get("temp").getAsDouble();
-                    int humidity = forecastData.getAsJsonObject("main").get("humidity").getAsInt();
-                    int clouds = forecastData.getAsJsonObject("clouds").get("all").getAsInt();
-                    double windSpeed = forecastData.getAsJsonObject("wind").get("speed").getAsDouble();
-                    double rain = 0.0;
-
-                    if (forecastData.has("rain")) {
-                        JsonObject rainObject = forecastData.getAsJsonObject("rain");
-                        if (rainObject.has("3h")) {
-                            rain = rainObject.getAsJsonPrimitive("3h").getAsDouble();
-                        }
-                    }
-
-                    return new Weather(temperature, humidity, clouds, windSpeed, rain, location, instant);
-                }
-            }
-        }
-
-        return null; // No se encontraron datos para el Instant especificado
-    }*/
 
     private Weather parseJsonData(String jsonData, Location location, Instant instant) {
         JsonObject jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
@@ -102,28 +75,8 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         int humidity = forecastData.getAsJsonObject("main").get("humidity").getAsInt();
         int clouds = forecastData.getAsJsonObject("clouds").get("all").getAsInt();
         double windSpeed = forecastData.getAsJsonObject("wind").get("speed").getAsDouble();
-        double rain = getRainFromForecastData(forecastData);
+        double rainProbability = forecastData.get("pop").getAsDouble();
 
-        return new Weather(temperature, humidity, clouds, windSpeed, rain, location, instant);
+        return new Weather(temperature, humidity, clouds, windSpeed, rainProbability, location, instant);
     }
-
-    private double getRainFromForecastData(JsonObject forecastData) {
-        double rain = 0.0;
-
-        if (forecastData.has("rain")) {
-            JsonObject rainObject = forecastData.getAsJsonObject("rain");
-            rain = getRainValueFromRainObject(rainObject);
-        }
-
-        return rain;
-    }
-
-    private double getRainValueFromRainObject(JsonObject rainObject) {
-        if (rainObject.has("3h")) {
-            return rainObject.getAsJsonPrimitive("3h").getAsDouble();
-        }
-        return 0.0;
-    }
-
-
 }

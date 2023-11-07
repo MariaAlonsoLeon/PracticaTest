@@ -1,23 +1,42 @@
 package org.ulpgc.dacd.control;
+
 import org.ulpgc.dacd.model.Location;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
-
 public class Main {
-    // Cargar las locaciones
-    static List<Location> locations = loadLocations();
-    static WeatherSupplier supplier = new OpenWeatherMapSupplier("https://api.openweathermap.org/data/2.5/forecast?", "bf24a2b08d87ba34d7ea55a06937231b");
-    static WeatherStore store = new SQLiteWeatherStore("jdbc:sqlite:src/main/resources/weather.db");
-    static WeatherController weatherControl = new WeatherController(locations, 5, supplier, store);
-
     public static void main(String[] args) {
+        // Leer la API key desde el archivo
+        String apiKey = readApiKeyFromFile("\\Users\\Maria\\Desktop\\apiKey.txt");
+
+        // Cargar las locaciones
+        List<Location> locations = loadLocations();
+
+        // Crear instancias de los objetos con la API key
+        WeatherSupplier supplier = new OpenWeatherMapSupplier("https://api.openweathermap.org/data/2.5/forecast?", apiKey);
+        WeatherStore store = new SQLiteWeatherStore("jdbc:sqlite:src/main/resources/weather.db");
+        WeatherController weatherControl = new WeatherController(locations, 5, supplier, store);
+
         Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new MiTarea(), 0, 6 * 60 * 60 * 1000); // Cada 6 horas
+        timer.scheduleAtFixedRate(new MiTarea(weatherControl), 0, 6 * 60 * 60 * 1000); // Cada 6 horas
     }
 
     static class MiTarea extends TimerTask {
+        private final WeatherController weatherControl;
+
+        public MiTarea(WeatherController weatherControl) {
+            this.weatherControl = weatherControl;
+        }
+
         public void run() {
-            weatherControl.execute(); // Llama a tu función execute() aquí
+            try {
+                weatherControl.execute(); // Llama a tu función execute() aquí
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -35,5 +54,14 @@ public class Main {
         };
         // Agregar las ubicaciones a la lista
         return Arrays.asList(locations);
+    }
+
+    private static String readApiKeyFromFile(String filePath) {
+        try {
+            return Files.readString(Paths.get(filePath)).split(": ")[1];
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ""; // Retorna una cadena vacía en caso de error
+        }
     }
 }
