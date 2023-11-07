@@ -2,11 +2,8 @@ package org.ulpgc.dacd.control;
 
 import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
-
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,10 +25,10 @@ public class WeatherController {
             Instant currentTime = Instant.now();
             List<Instant> forecastTimes = calculateForecastTimes(currentTime, days);
 
-            List<Weather> weatherData = weatherSupplier.getWeather(location, forecastTimes);
+            List<Weather> weathers = weatherSupplier.getWeather(location, forecastTimes);
 
-            if (weatherData != null && !weatherData.isEmpty()) {
-                weatherStore.saveAll(weatherData); // Almacenar todos los datos en la tabla adecuada
+            if (weathers != null && !weathers.isEmpty()) {
+                weatherStore.save(weathers); // Almacenar todos los datos en la tabla adecuada
             }
         }
     }

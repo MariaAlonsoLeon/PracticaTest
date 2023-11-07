@@ -2,7 +2,6 @@ package org.ulpgc.dacd.control;
 
 import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
-
 import java.sql.*;
 import java.time.Instant;
 import java.util.List;
@@ -10,18 +9,12 @@ import java.util.Optional;
 
 public class SQLiteWeatherStore implements WeatherStore {
     private final String databaseURL;
-
     public SQLiteWeatherStore(String databaseURL) {
         this.databaseURL = databaseURL;
     }
 
     @Override
-    public void save(Weather weather) {
-        saveAll(List.of(weather)); // Llama a saveAll con una lista que contiene un solo elemento
-    }
-
-    @Override
-    public void saveAll(List<Weather> weatherList) {
+    public void save(List<Weather> weatherList) {
         try (Connection connection = DriverManager.getConnection(databaseURL)) {
             if (weatherList.isEmpty()) {
                 return; // No hay datos para guardar

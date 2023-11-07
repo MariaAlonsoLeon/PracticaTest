@@ -26,7 +26,7 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         List<Weather> weathers = new ArrayList<>();
 
         String url = buildUrl(location);
-        String jsonData = getWeatherDataFromUrl(url);
+        String jsonData = getWeatherFromUrl(url);
 
         for (Instant instant : instants) {
             Weather weather = parseJsonData(jsonData, location, instant);
@@ -40,11 +40,10 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
 
     private String buildUrl(Location location) {
         String coordinates = "lat=" + location.getLat() + "&lon=" + location.getLon();
-        System.out.println(templateUrl + coordinates  + "&appid=" + apiKey + "&units=metric");
         return templateUrl + coordinates + "&appid=" + apiKey + "&units=metric";
     }
 
-    private String getWeatherDataFromUrl(String url) throws IOException {
+    private String getWeatherFromUrl(String url) throws IOException {
         // Scraping
         Document document = Jsoup.connect(url).ignoreContentType(true).get();
         return document.text();
@@ -58,11 +57,11 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
             long targetTimestamp = instant.getEpochSecond();
 
             for (int i = 0; i < list.size(); i++) {
-                JsonObject forecastData = list.get(i).getAsJsonObject();
-                long forecastTimestamp = forecastData.get("dt").getAsLong();
+                JsonObject forecastItem = list.get(i).getAsJsonObject();
+                long forecastTimestamp = forecastItem.get("dt").getAsLong();
 
                 if (forecastTimestamp == targetTimestamp) {
-                    return createWeatherFromForecastData(forecastData, location, instant);
+                    return createWeatherFromForecastData(forecastItem, location, instant);
                 }
             }
         }

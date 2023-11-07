@@ -1,7 +1,6 @@
 package org.ulpgc.dacd.control;
 
 import org.ulpgc.dacd.model.Location;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
