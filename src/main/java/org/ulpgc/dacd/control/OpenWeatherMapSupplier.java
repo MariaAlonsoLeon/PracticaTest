@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
+import org.ulpgc.dacd.model.WeatherCache;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.List;
 public class OpenWeatherMapSupplier implements WeatherSupplier {
     private final String templateUrl;
     private final String apiKey;
+    private final WeatherCache weatherCache = new WeatherCache();
 
     public OpenWeatherMapSupplier(String templateUrl, String apiKey) {
         this.templateUrl = templateUrl;
@@ -25,16 +27,20 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     public List<Weather> getWeather(Location location, List<Instant> instants) throws IOException {
         List<Weather> weathers = new ArrayList<>();
 
-        String url = buildUrl(location);
-        String jsonData = getWeatherFromUrl(url);
-
         for (Instant instant : instants) {
-            Weather weather = parseJsonData(jsonData, location, instant);
-            if (weather != null) {
-                weathers.add(weather);
+            Weather cachedWeather = weatherCache.getWeatherFromCache(location, instant);
+            if (cachedWeather != null) {
+                weathers.add(cachedWeather);
+            } else {
+                String url = buildUrl(location);
+                String jsonData = getWeatherFromUrl(url);
+                Weather weather = parseJsonData(jsonData, location, instant);
+                if (weather != null) {
+                    weathers.add(weather);
+                    weatherCache.cacheWeather(location, instant, weather);
+                }
             }
         }
-
         return weathers;
     }
 
@@ -44,7 +50,6 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     }
 
     private String getWeatherFromUrl(String url) throws IOException {
-        // Scraping
         Document document = Jsoup.connect(url).ignoreContentType(true).get();
         return document.text();
     }
@@ -52,28 +57,30 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     private Weather parseJsonData(String jsonData, Location location, Instant instant) {
         JsonObject jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
         JsonArray list = jsonObject.getAsJsonArray("list");
-
-        if (list != null && list.size() > 0) {
+        if (list != null) {
             long targetTimestamp = instant.getEpochSecond();
-
             for (int i = 0; i < list.size(); i++) {
                 JsonObject forecastItem = list.get(i).getAsJsonObject();
                 long forecastTimestamp = forecastItem.get("dt").getAsLong();
-
                 if (forecastTimestamp == targetTimestamp) {
                     return createWeatherFromForecastData(forecastItem, location, instant);
+                } else if (forecastTimestamp > targetTimestamp) {
+                    break;
                 }
             }
         }
-
-        return null; // No se encontraron datos para el Instant especificado
+        return null;
     }
 
     private Weather createWeatherFromForecastData(JsonObject forecastData, Location location, Instant instant) {
-        double temperature = forecastData.getAsJsonObject("main").get("temp").getAsDouble();
-        int humidity = forecastData.getAsJsonObject("main").get("humidity").getAsInt();
-        int clouds = forecastData.getAsJsonObject("clouds").get("all").getAsInt();
-        double windSpeed = forecastData.getAsJsonObject("wind").get("speed").getAsDouble();
+        JsonObject main = forecastData.getAsJsonObject("main");
+        JsonObject cloud = forecastData.getAsJsonObject("clouds");
+        JsonObject wind = forecastData.getAsJsonObject("wind");
+
+        double temperature = main.get("temp").getAsDouble();
+        int humidity = main.get("humidity").getAsInt();
+        int clouds = cloud.get("all").getAsInt();
+        double windSpeed = wind.get("speed").getAsDouble();
         double rainProbability = forecastData.get("pop").getAsDouble();
 
         return new Weather(temperature, humidity, clouds, windSpeed, rainProbability, location, instant);
