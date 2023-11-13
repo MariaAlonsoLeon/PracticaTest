@@ -22,15 +22,18 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     }
 
     @Override
-    public List<Weather> getWeather(Location location, List<Instant> instants) throws IOException {
+    public List<Weather> getWeather(Location location, List<Instant> instants) {
         List<Weather> weathers = new ArrayList<>();
-
         for (Instant instant : instants) {
-            String url = buildUrl(location);
-            String jsonData = getWeatherFromUrl(url);
-            Weather weather = parseJsonData(jsonData, location, instant);
-            if (weather != null) {
-                weathers.add(weather);
+            try {
+                String url = buildUrl(location);
+                String jsonData = getWeatherFromUrl(url);
+                Weather weather = parseJsonData(jsonData, location, instant);
+                if (weather != null) {
+                    weathers.add(weather);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
         return weathers;
