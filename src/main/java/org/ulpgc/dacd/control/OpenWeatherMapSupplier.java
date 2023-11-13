@@ -7,7 +7,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
-import org.ulpgc.dacd.model.WeatherCache;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,7 +15,6 @@ import java.util.List;
 public class OpenWeatherMapSupplier implements WeatherSupplier {
     private final String templateUrl;
     private final String apiKey;
-    private final WeatherCache weatherCache = new WeatherCache();
 
     public OpenWeatherMapSupplier(String templateUrl, String apiKey) {
         this.templateUrl = templateUrl;
@@ -28,17 +26,11 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         List<Weather> weathers = new ArrayList<>();
 
         for (Instant instant : instants) {
-            Weather cachedWeather = weatherCache.getWeatherFromCache(location, instant);
-            if (cachedWeather != null) {
-                weathers.add(cachedWeather);
-            } else {
-                String url = buildUrl(location);
-                String jsonData = getWeatherFromUrl(url);
-                Weather weather = parseJsonData(jsonData, location, instant);
-                if (weather != null) {
-                    weathers.add(weather);
-                    weatherCache.cacheWeather(location, instant, weather);
-                }
+            String url = buildUrl(location);
+            String jsonData = getWeatherFromUrl(url);
+            Weather weather = parseJsonData(jsonData, location, instant);
+            if (weather != null) {
+                weathers.add(weather);
             }
         }
         return weathers;
