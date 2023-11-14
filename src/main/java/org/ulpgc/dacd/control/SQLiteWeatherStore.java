@@ -18,7 +18,7 @@ public class SQLiteWeatherStore implements WeatherStore {
     @Override
     public void save(List<Weather> weatherList) {
         if (weatherList.isEmpty()) {
-            return; // No hay datos para guardar
+            return;
         }
         try (Connection connection = DriverManager.getConnection(databaseURL)) {
             Location location = weatherList.get(0).getLocation();
@@ -26,14 +26,9 @@ public class SQLiteWeatherStore implements WeatherStore {
             createTableIfNotExists(connection, tableName);
             Instant lastSavedDate = getLastSavedDate(connection, tableName);
 
-            for (Weather weather : weatherList) {
-                Instant currentDate = weather.getTs();
-                if (currentDate.isAfter(lastSavedDate)) {
-                    insertOrUpdateRecord(connection, tableName, weather);
-                }
-            }
+            processWeatherList(connection, tableName, weatherList, lastSavedDate);
         } catch (SQLException e) {
-            handleSQLException(e);
+            handleSQLException("Error al guardar datos meteorológicos.", e);
         }
     }
 
@@ -48,42 +43,70 @@ public class SQLiteWeatherStore implements WeatherStore {
                 ResultSet resultSet = preparedStatement.executeQuery();
 
                 if (resultSet.next()) {
-                    double temperature = resultSet.getDouble("temperature");
-                    double rainfall = resultSet.getDouble("rain");
-                    int humidity = resultSet.getInt("humidity");
-                    int clouds = resultSet.getInt("cloud");
-                    double windSpeed = resultSet.getDouble("wind_speed");
-
-                    Weather weather = new Weather(temperature, humidity, clouds, windSpeed, rainfall, location, instant);
-                    return Optional.of(weather);
+                    return Optional.of(mapResultSetToWeather(resultSet, location));
                 }
             }
         } catch (SQLException e) {
-            handleSQLException(e);
+            handleSQLException("Error al cargar datos meteorológicos.", e);
         }
         return Optional.empty();
     }
 
-    private void handleSQLException(SQLException e) {
-        // Manejar la excepción de acuerdo a los requisitos de tu aplicación.
-        e.printStackTrace();
+    private void processWeatherList(Connection connection, String tableName, List<Weather> weatherList, Instant lastSavedDate) {
+        weatherList.stream()
+                .filter(weather -> weather.getTs().isAfter(lastSavedDate))
+                .forEach(weather -> {
+                    try {
+                        insertOrUpdateRecord(connection, tableName, weather);
+                    } catch (SQLException e) {
+                        handleSQLException("Error al procesar datos meteorológicos.", e);
+                    }
+                });
+    }
+
+    private Weather mapResultSetToWeather(ResultSet resultSet, Location location) throws SQLException {
+        double temperature = resultSet.getDouble("temperature");
+        double rainfall = resultSet.getDouble("rain");
+        int humidity = resultSet.getInt("humidity");
+        int clouds = resultSet.getInt("cloud");
+        double windSpeed = resultSet.getDouble("wind_speed");
+        Instant instant = Instant.parse(resultSet.getString("date"));
+
+        return new Weather(temperature, humidity, clouds, windSpeed, rainfall, location, instant);
     }
 
     private void createTableIfNotExists(Connection connection, String tableName) {
+        // Añadir la columna de fecha de actualización y establecer date como PRIMARY KEY
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "date TEXT, " +
+                "date TEXT PRIMARY KEY, " +
                 "temperature REAL, " +
                 "rain REAL, " +
                 "humidity INTEGER, " +
                 "cloud INTEGER, " +
-                "wind_speed REAL)";
+                "wind_speed REAL, " +
+                "update_date TEXT)";
         try (Statement statement = connection.createStatement()) {
             statement.execute(createTableSQL);
         } catch (SQLException e) {
-            handleSQLException(e);
+            e.printStackTrace();
         }
     }
+
+
+    /*tring createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
+        "date TEXT PRIMARY KEY, " +
+        "temperature REAL, " +
+        "rain REAL, " +
+        "humidity INTEGER, " +
+        "cloud INTEGER, " +
+        "wind_speed REAL, " +
+        "update_date TEXT)";
+
+try (PreparedStatement statement = connection.prepareStatement(createTableSQL)) {
+    statement.execute();
+} catch (SQLException e) {
+    e.printStackTrace();
+}*/
 
     private Instant getLastSavedDate(Connection connection, String tableName) throws SQLException {
         String lastSavedDateSQL = "SELECT MAX(date) FROM " + tableName;
@@ -101,8 +124,8 @@ public class SQLiteWeatherStore implements WeatherStore {
 
     private void insertOrUpdateRecord(Connection connection, String tableName, Weather weather) throws SQLException {
         String formattedDate = weather.getTs().toString();
-        String insertOrUpdateDataSQL = "REPLACE INTO " + tableName + " (date, temperature, rain, humidity, cloud, wind_speed) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String insertOrUpdateDataSQL = "INSERT OR REPLACE INTO " + tableName + " (date, temperature, rain, humidity, cloud, wind_speed, update_date) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(insertOrUpdateDataSQL)) {
             preparedStatement.setString(1, formattedDate);
@@ -111,7 +134,11 @@ public class SQLiteWeatherStore implements WeatherStore {
             preparedStatement.setInt(4, weather.getHumidity());
             preparedStatement.setInt(5, weather.getClouds());
             preparedStatement.setDouble(6, weather.getWindSpeed());
+            preparedStatement.setObject(7, Instant.now());
             preparedStatement.executeUpdate();
         }
+    }
+    private void handleSQLException(String message, SQLException e) {
+        System.err.println(message + " " + e.getMessage());
     }
 }

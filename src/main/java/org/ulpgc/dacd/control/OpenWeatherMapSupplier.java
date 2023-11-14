@@ -7,10 +7,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.ulpgc.dacd.model.Location;
 import org.ulpgc.dacd.model.Weather;
+
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class OpenWeatherMapSupplier implements WeatherSupplier {
     private final String templateUrl;
@@ -23,25 +24,26 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
 
     @Override
     public List<Weather> getWeather(Location location, List<Instant> instants) {
-        List<Weather> weathers = new ArrayList<>();
-        for (Instant instant : instants) {
-            try {
-                String url = buildUrl(location);
-                String jsonData = getWeatherFromUrl(url);
-                Weather weather = parseJsonData(jsonData, location, instant);
-                if (weather != null) {
-                    weathers.add(weather);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return weathers;
+        String url = buildUrl(location);
+        System.out.println(url);
+
+        return instants.stream()
+                .map(instant -> {
+                    try {
+                        String jsonData = getWeatherFromUrl(url);
+                        return parseJsonData(jsonData, location, instant);
+                    } catch (IOException e) {
+                        handleIOException(e);
+                        return null;
+                    }
+                })
+                .filter(weather -> weather != null)
+                .collect(Collectors.toList());
     }
 
     private String buildUrl(Location location) {
-        String coordinates = "lat=" + location.getLat() + "&lon=" + location.getLon();
-        return templateUrl + coordinates + "&appid=" + apiKey + "&units=metric";
+        String coordinates = String.format("lat=%s&lon=%s", location.getLat(), location.getLon());
+        return String.format("%s%s&appid=%s&units=metric", templateUrl, coordinates, apiKey);
     }
 
     private String getWeatherFromUrl(String url) throws IOException {
@@ -53,15 +55,23 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         JsonObject jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
         JsonArray list = jsonObject.getAsJsonArray("list");
         if (list != null) {
-            long targetTimestamp = instant.getEpochSecond();
-            for (int i = 0; i < list.size(); i++) {
-                JsonObject forecastItem = list.get(i).getAsJsonObject();
-                long forecastTimestamp = forecastItem.get("dt").getAsLong();
-                if (forecastTimestamp == targetTimestamp) {
-                    return createWeatherFromForecastData(forecastItem, location, instant);
-                } else if (forecastTimestamp > targetTimestamp) {
-                    break;
-                }
+            JsonObject forecastItem = findMatchingForecastItem(list, instant);
+            if (forecastItem != null) {
+                return createWeatherFromForecastData(forecastItem, location, instant);
+            }
+        }
+        return null;
+    }
+
+    private JsonObject findMatchingForecastItem(JsonArray list, Instant instant) {
+        long targetTimestamp = instant.getEpochSecond();
+        for (int i = 0; i < list.size(); i++) {
+            JsonObject forecastItem = list.get(i).getAsJsonObject();
+            long forecastTimestamp = forecastItem.get("dt").getAsLong();
+            if (forecastTimestamp == targetTimestamp) {
+                return forecastItem;
+            } else if (forecastTimestamp > targetTimestamp) {
+                break;
             }
         }
         return null;
@@ -79,5 +89,9 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
         double rainProbability = forecastData.get("pop").getAsDouble();
 
         return new Weather(temperature, humidity, clouds, windSpeed, rainProbability, location, instant);
+    }
+
+    private void handleIOException(IOException e) {
+        System.err.println("Error al obtener el clima: " + e.getMessage());
     }
 }

@@ -7,9 +7,8 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class WeatherController {
@@ -26,20 +25,18 @@ public class WeatherController {
     }
 
     public void execute() throws IOException {
-        ExecutorService executor = Executors.newFixedThreadPool(locations.size());
         Instant currentTime = Instant.now();
         List<Instant> forecastTimes = calculateForecastTimes(currentTime, days);
+
         for (Location location : locations) {
-            executor.execute(() -> {
-                try {
-                    processLocation(location, forecastTimes);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
+            try {
+                processLocation(location, forecastTimes);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        executor.shutdown();
     }
+
 
     private void processLocation(Location location, List<Instant> forecastTimes) {
         try {
@@ -53,9 +50,8 @@ public class WeatherController {
     }
 
     private List<Instant> calculateForecastTimes(Instant currentTime, int days) {
-        return Stream.iterate(currentTime, time -> time.plusSeconds(86400))
-                .limit(days)
-                .map(time -> Instant.ofEpochSecond((time.getEpochSecond() + 43200) / 86400 * 86400 + 43200))
+        return IntStream.range(0, days)
+                .mapToObj(i -> currentTime.plusSeconds(i * 86400 + 43200))
                 .collect(Collectors.toList());
     }
 
