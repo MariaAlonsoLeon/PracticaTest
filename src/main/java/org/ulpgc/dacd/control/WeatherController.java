@@ -5,6 +5,7 @@ import org.ulpgc.dacd.model.Weather;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -51,7 +52,7 @@ public class WeatherController {
 
     private List<Instant> calculateForecastTimes(Instant currentTime, int days) {
         return IntStream.range(0, days)
-                .mapToObj(i -> currentTime.plusSeconds(i * 86400 + 43200))
+                .mapToObj(i -> currentTime.plus(i + 1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS).plus(12, ChronoUnit.HOURS))
                 .collect(Collectors.toList());
     }
 

@@ -26,7 +26,6 @@ public class OpenWeatherMapSupplier implements WeatherSupplier {
     public List<Weather> getWeather(Location location, List<Instant> instants) {
         String url = buildUrl(location);
         System.out.println(url);
-
         return instants.stream()
                 .map(instant -> {
                     try {
