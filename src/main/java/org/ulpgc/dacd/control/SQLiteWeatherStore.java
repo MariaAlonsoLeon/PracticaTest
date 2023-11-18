@@ -7,8 +7,12 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SQLiteWeatherStore implements WeatherStore {
+    private static final Logger logger = Logger.getLogger(SQLiteWeatherStore.class.getName());
+
     private final String databaseURL;
 
     public SQLiteWeatherStore(String databaseURL) {
@@ -20,32 +24,46 @@ public class SQLiteWeatherStore implements WeatherStore {
         if (weatherList.isEmpty()) {
             return;
         }
+
         try (Connection connection = DriverManager.getConnection(databaseURL)) {
             Location location = weatherList.get(0).getLocation();
-            String tableName = location.getIsland().replace(" ", "_");
+            String tableName = buildTableName(location);
             createTableIfNotExists(connection, tableName);
             processWeatherList(connection, tableName, weatherList);
         } catch (SQLException e) {
-            handleSQLException("Error al guardar datos meteorológicos.", e);
+            handleSQLException("Error saving weather data.", e);
         }
     }
 
     @Override
     public Optional<Weather> loadWeather(Location location, Instant instant) {
         try (Connection connection = DriverManager.getConnection(databaseURL)) {
-            String tableName = location.getIsland().replace(" ", "_");
+            String tableName = buildTableName(location);
             createTableIfNotExists(connection, tableName);
-            String selectDataSQL = "SELECT * FROM " + tableName + " WHERE date = ?";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(selectDataSQL)) {
-                preparedStatement.setObject(1, instant);
-                ResultSet resultSet = preparedStatement.executeQuery();
-
-                if (resultSet.next()) {
-                    return Optional.of(mapResultSetToWeather(resultSet, location));
-                }
-            }
+            String selectDataSQL = buildSelectDataSQL(tableName);
+            return executeSelectStatement(connection, selectDataSQL, instant, location);
         } catch (SQLException e) {
-            handleSQLException("Error al cargar datos meteorológicos.", e);
+            handleSQLException("Error loading weather data.", e);
+        }
+        return Optional.empty();
+    }
+
+    private String buildTableName(Location location) {
+        return location.getIsland().replace(" ", "_");
+    }
+
+    private String buildSelectDataSQL(String tableName) {
+        return "SELECT * FROM " + tableName + " WHERE date = ?";
+    }
+
+    private Optional<Weather> executeSelectStatement(Connection connection, String selectDataSQL, Instant instant, Location location) throws SQLException {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectDataSQL)) {
+            preparedStatement.setObject(1, instant);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                return Optional.of(mapResultSetToWeather(resultSet, location));
+            }
         }
         return Optional.empty();
     }
@@ -55,34 +73,42 @@ public class SQLiteWeatherStore implements WeatherStore {
             try {
                 upsertRecord(connection, tableName, weather);
             } catch (SQLException e) {
-                handleSQLException("Error al procesar datos meteorológicos.", e);
+                handleSQLException("Error processing weather data.", e);
             }
         });
     }
 
     private void upsertRecord(Connection connection, String tableName, Weather weather) throws SQLException {
         String formattedDate = weather.getTs().toString();
-        String upsertDataSQL = "INSERT OR REPLACE INTO " + tableName +
-                " (date, temperature, rain, humidity, cloud, wind_speed, update_date) VALUES (?, ?, ?, ?, ?, ?, ?)";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(upsertDataSQL)) {
-            preparedStatement.setString(1, formattedDate);
-            preparedStatement.setDouble(2, weather.getTemperature());
-            preparedStatement.setDouble(3, weather.getRain());
-            preparedStatement.setInt(4, weather.getHumidity());
-            preparedStatement.setInt(5, weather.getClouds());
-            preparedStatement.setDouble(6, weather.getWindSpeed());
-            preparedStatement.setObject(7, Instant.now());
-            preparedStatement.executeUpdate();
+        String insertOrUpdateDataSQL = buildUpsertSQL(tableName, weather, formattedDate);
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(insertOrUpdateDataSQL);
+        } catch (SQLException e) {
+            handleSQLException("Error executing SQL query.", e);
         }
     }
 
+    private String buildUpsertSQL(String tableName, Weather weather, String formattedDate) {
+        return String.format(
+                "INSERT OR REPLACE INTO %s (date, temperature, rain, humidity, cloud, wind_speed, update_date) " +
+                        "VALUES ('%s', %s, %s, %s, %s, %s, '%s')",
+                tableName,
+                formattedDate,
+                weather.getTemperature(),
+                weather.getRain(),
+                weather.getHumidity(),
+                weather.getClouds(),
+                weather.getWindSpeed(),
+                Instant.now()
+        );
+    }
+
     private Weather mapResultSetToWeather(ResultSet resultSet, Location location) throws SQLException {
-        double temperature = resultSet.getDouble("temperature");
-        double rainfall = resultSet.getDouble("rain");
+        float temperature = resultSet.getFloat("temperature");
+        float rainfall = resultSet.getFloat("rain");
         int humidity = resultSet.getInt("humidity");
         int clouds = resultSet.getInt("cloud");
-        double windSpeed = resultSet.getDouble("wind_speed");
+        float windSpeed = resultSet.getFloat("wind_speed");
         Instant instant = Instant.parse(resultSet.getString("date"));
 
         return new Weather(temperature, humidity, clouds, windSpeed, rainfall, location, instant);
@@ -94,11 +120,11 @@ public class SQLiteWeatherStore implements WeatherStore {
         try (Statement statement = connection.createStatement()) {
             statement.execute(createTableSQL);
         } catch (SQLException e) {
-            e.printStackTrace();
+            handleSQLException("Error creating table.", e);
         }
     }
 
     private void handleSQLException(String message, SQLException e) {
-        System.err.println(message + " " + e.getMessage());
+        logger.log(Level.SEVERE, message, e);
     }
 }

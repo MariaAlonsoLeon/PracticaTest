@@ -2,7 +2,6 @@ package org.ulpgc.dacd.control;
 
 import java.io.IOException;
 import java.util.TimerTask;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class WeatherTask extends TimerTask {
@@ -14,13 +13,12 @@ public class WeatherTask extends TimerTask {
     }
 
     public void run() {
+        logger.info("Starting weather data retrieval task...");
         try {
-            logger.info("Iniciando tarea de obtención del clima...");
             weatherControl.execute();
-            logger.info("Tarea de obtención del clima completada.");
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Error durante la ejecución de la tarea de obtención del clima", e);
             throw new RuntimeException(e);
         }
+        logger.info("Weather data retrieval task completed.");
     }
 }

@@ -1,8 +1,8 @@
 # WeatherApp
 **Asignatura:** Desarrollo de Aplicaciones para Ciencia de Datos
-**Curso:** 2023
+**Curso:** 2023-2024
 **Titulación:** Ciencia e Ingenería de Datos
-**Escuela:** Escuela Técnica Superior de Ingeniería Informática y de Telecomunicaciones
+**Escuela:** Escuela de Ingenería Informática
 **Universidad:** Universidad de las Palmas de Gran Canaria
 
 ## Resumen de la Funcionalidad
@@ -18,7 +18,7 @@ La aplicación WeatherApp proporciona información meteorológica para diferente
 
 La aplicación utiliza el patrón de diseño MVC (Modelo-Vista-Controlador) para lograr una estructura modular y mantenible. La separación de responsabilidades facilita la extensibilidad y la prueba unitaria.
 
-### Decisiones de Implementación
+## Decisiones de Implementación
 
 ### Prevención de Inyecciones SQL
 El uso de Prepared Statements en las consultas SQL en `SQLiteWeatherStore` minimiza el riesgo de inyecciones SQL, proporcionando una capa de seguridad adicional.
@@ -40,6 +40,7 @@ Los objetos de tipo `Weather` se diseñan como inmutables, lo que contribuye a l
 
 ### Validación de Datos de Entrada
 Se realizan verificaciones de nulidad y validaciones de datos de entrada en puntos críticos del código, evitando posibles errores y mejorando la robustez del sistema.
+
 
 
 ### Diagrama de Clases

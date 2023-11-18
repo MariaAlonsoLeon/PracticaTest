@@ -24,4 +24,8 @@ public class Location {
         return lon;
     }
 
+    @Override
+    public String toString() {
+        return getIsland() + "(" + getLat() + ", " + getLon() + ")";
+    }
 }

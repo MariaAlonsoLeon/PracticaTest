@@ -3,15 +3,15 @@ package org.ulpgc.dacd.model;
 import java.time.Instant;
 
 public class Weather {
-    private final Double temperature;
+    private final float temperature;
     private final int humidity;
     private final int clouds;
-    private final double windSpeed;
-    private final double rain;
+    private final float windSpeed;
+    private final float rain;
     private final Location location;
     private final Instant ts;
 
-    public Weather(Double temperature, int humidity, int clouds, double windSpeed, double rain, Location location, Instant ts) {
+    public Weather(float temperature, int humidity, int clouds, float windSpeed, float rain, Location location, Instant ts) {
         this.temperature = temperature;
         this.humidity = humidity;
         this.clouds = clouds;
@@ -21,7 +21,7 @@ public class Weather {
         this.ts = ts;
     }
 
-    public Double getTemperature() {
+    public float getTemperature() {
         return temperature;
     }
 
@@ -33,11 +33,11 @@ public class Weather {
         return clouds;
     }
 
-    public double getWindSpeed() {
+    public float getWindSpeed() {
         return windSpeed;
     }
 
-    public double getRain() {
+    public float getRain() {
         return rain;
     }
 
@@ -47,5 +47,18 @@ public class Weather {
 
     public Instant getTs() {
         return ts;
+    }
+
+    @Override
+    public String toString() {
+        return "Weather{" +
+                "temperature=" + temperature +
+                ", humidity=" + humidity +
+                ", clouds=" + clouds +
+                ", windSpeed=" + windSpeed +
+                ", rain=" + rain +
+                ", location=" + location +
+                ", ts=" + ts +
+                '}';
     }
 }
