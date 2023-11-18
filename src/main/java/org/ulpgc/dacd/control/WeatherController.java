@@ -36,7 +36,7 @@ public class WeatherController {
             try {
                 processLocation(location, forecastTimes);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.log(Level.SEVERE, "Error processing location: " + e.getMessage(), e);
             }
         }
 
@@ -59,6 +59,7 @@ public class WeatherController {
                 logger.log(Level.WARNING, "Error in user input: " + e.getMessage(), e);
             }
         } while (shouldRepeatOperation(scanner));
+        scanner.close();
     }
 
     private boolean shouldRepeatOperation(Scanner scanner) {
@@ -93,7 +94,6 @@ public class WeatherController {
             logger.log(Level.SEVERE, "Error loading weather data:  " + e.getMessage(), e);
         }
     }
-
 
     private Optional<Location> findLocationByName(String name) {
         return locations.stream()
